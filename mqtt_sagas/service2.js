@@ -43,8 +43,8 @@ client.on('message', (topic, message, packet)=>{
   // get final response and check response_block
   else if(data.abort == true){
     
-    const {id, count} = data.originalData
-    dbService2.recover(id, count)
+    const {serviceId, count} = data.originalData
+    dbService2.recover(serviceId, count)
    
   }
 

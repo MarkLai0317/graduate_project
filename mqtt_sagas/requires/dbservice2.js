@@ -24,7 +24,7 @@ function getCount(id){
 }
 
 function recover(id, count){
-  console.log('recover')
+  console.log('recover'+id)
   try{
     db.run(`UPDATE CALLCOUNT
             SET count = @count
