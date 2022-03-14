@@ -1,4 +1,10 @@
 const { v4: uuidv4 } = require('uuid');
+
+//event emitter
+var EventEmitter = require('events');
+class MyEmitter extends EventEmitter {}
+const myEmitter = new MyEmitter();
+
 var mqtt = require('mqtt')
 var client1 = mqtt.connect('mqtt://localhost:8888', {clientId : 'client1'})
 
@@ -38,8 +44,12 @@ function callService2(transactionId){
 
 class ServiceState {
   constructor(transactionId) {
-    this.transactionId = transactionId;  
+    this.transactionId = transactionId;
+
+    
+    this.service1Id = ''  
     this.service1 = 0;
+    this.service2OriginalData = {}
     this.service2 = 0;
   }
 }
@@ -71,62 +81,63 @@ function checkServiceState(transactionId){
 
 
 
-async function confirmService1(data){
+function confirmService1(data){
   
   client1.unsubscribe(data.id)
+
+  let serviceState = confirmList.find(x => x.transactionId === data.transactionId)
+  serviceState.service1Id = data.id
   if(data.num % 2 == 0){ //abort
-    confirmList.find(x => x.transactionId === data.transactionId).service1 = -1
+    serviceState.service1 = -1
   }
   else{ // confirm
-    confirmList.find(x => x.transactionId === data.transactionId).service1 = 1
+    serviceState.service1 = 1
   }
-  
-  const success = await checkServiceState(data.transactionId)
-  console.log('await')
+
+  myEmitter.emit('service_response', serviceState)
+}
+
+function respondService1(success, id){
   let response = {
     response: true,
-    id: data.id,
-    abort : true,
-  }
-  if(success){ //confirm
-    response.abort = false 
+    id: id,
+    abort : !success,
   }
   client1.publish('service1',JSON.stringify(response))
-
 }
 
 // service2 控制成功失敗
 const service2succeeded = true
 
-async function confirmService2(data){
-  client1.unsubscribe(data.transientId)
+function confirmService2(topic, data){
+  client1.unsubscribe(topic)
+  let serviceState = confirmList.find(x => x.transactionId === data.transactionId)
+  serviceState.service2OriginalData = data.originalData
+
   if(!service2succeeded){
-    confirmList.find(x => x.transactionId === data.transactionId).service2 = -1
+    serviceState.service2 = -1
   }
   else{ // confirm
-    confirmList.find(x => x.transactionId === data.transactionId).service2 = 1
+    serviceState.service2 = 1
   }
-  console.log('await2')
-  const success = await checkServiceState(data.transactionId)
 
-  if(!success){
-    let response = {
-      response: true,
-      originalData: data.originalData,
-      abort: true
-    }
-    cnosole.log('abort2')
-    client1.publish('service2', JSON.stringify(response))
-  }
-  else{
-    let response = {
-      response: true,
-      abort:false
-    }
-    client1.publish('service2', JSON.stringify(response))
-  }
+  myEmitter.emit('service_response', serviceState)
   
 }
+
+function respondService2(success, originalData){
+ 
+  let response = {
+    response: true,
+    originalData: originalData,
+    abort: !success
+  }
+  if(!success){console.log('abort2')}
+  client1.publish('service2', JSON.stringify(response))
+  
+}
+
+
 
 
 
@@ -139,7 +150,21 @@ client1.on('message', (topic, message, packet)=>{
     confirmService1(data)
   }
   else if (data.service == 2){
-    confirmService2(data)
+    confirmService2(topic, data)
   }
 
 })
+
+myEmitter.on('service_response', (stateObj) => {
+  console.log('get response');
+  
+  if(stateObj.service1 != 0 && stateObj.service2 != 0){
+    let success = (stateObj.service1 == 1 && stateObj.service2 == 1)
+    respondService1(success, stateObj.service1Id)
+    respondService2(success, stateObj.service2OriginalData)
+    let index = confirmList.findIndex(x => x.transactionId === stateObj.transactionId);
+    confirmList.splice(index, 1);
+  }
+
+});
+
