@@ -21,17 +21,22 @@ function getRandomInt(min, max) {
 const respond = (data) => {
   dbService1.addData(data)
   let response = {
-    id: data.id,
+    compensate:[
+      {
+        operation:'Insert',
+        id: data.id
+      },
+    ] ,
     transactionId:data.transactionId,
     service:1,
     num: getRandomInt(1,10)
   }
   console.log(response);
-  client.publish(data.id, JSON.stringify(response))
+  client.publish(data.transientId, JSON.stringify(response))
 }
 
 const abort = (data) => {
-  dbService1.deleteData(data.id)
+  dbService1.deleteData(data.compensate[0].id)
   console.log('abort')
 }
 

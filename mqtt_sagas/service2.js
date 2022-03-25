@@ -23,7 +23,12 @@ function respond(data){
   dbService2.updateCount(1)
   let response = {
     service: 2,
-    originalData: originalData,
+    compensate:[
+      {
+        operation: 'Update',
+        originalData: originalData
+      }
+    ],
     transactionId: data.transactionId,
   }
   console.log(response);
@@ -43,7 +48,7 @@ client.on('message', (topic, message, packet)=>{
   // get final response and check response_block
   else if(data.abort == true){
     
-    const {serviceId, count} = data.originalData
+    const {serviceId, count} = data.compensate[0].originalData
     dbService2.recover(serviceId, count)
    
   }
