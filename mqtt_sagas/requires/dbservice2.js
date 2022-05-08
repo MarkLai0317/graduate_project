@@ -12,27 +12,40 @@ function updateCount(id){
   } 
 }
 
-function getCount(id){
-  try{
-    return db.query(`SELECT *
-                    FROM CALLCOUNT
-                    WHERE serviceId = ?`, [id])[0];
-  }
-  catch (err) {
-    console.error(err)
-  }
+async function getCount(id){
+  return new Promise(async (resolve, reject) => {
+    try{
+      let result =  await db.query(`SELECT *
+                                FROM CALLCOUNT
+                                WHERE serviceId = ?`, [id])[0];
+      resolve(result)
+    }
+
+    catch (err) {
+      console.error(err)
+      reject(err)
+    }
+
+  })
+ 
+ 
 }
 
 function recover(id, count){
-  console.log('recover'+id)
-  try{
-    db.run(`UPDATE CALLCOUNT
-            SET count = @count
-            WHERE serviceId = @id`, {count, id});
-  }
-  catch (err) {
-    console.error(err)
-  }
+  
+  return new Promise((resolve, reject) => {
+    console.log('recover'+id)
+    try{
+      db.run(`UPDATE CALLCOUNT
+              SET count = @count
+              WHERE serviceId = @id`, {count, id});
+      resolve()
+    }
+    catch (err) {
+      console.error(err)
+      reject(err)
+    }
+  })
 }
 
 module.exports = {

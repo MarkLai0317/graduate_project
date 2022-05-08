@@ -1,6 +1,13 @@
 const dbService2 = require('./requires/dbservice2.js')
+
+var Mutex = require('async-mutex').Mutex;
+const mutex = new Mutex();
+var EventEmitter = require('events');
+class ConfirmMessageEmitter extends EventEmitter {}
+const confirmMessageEmitter = new ConfirmMessageEmitter();
+
 var mqtt = require('mqtt');
-var client = mqtt.connect('mqtt://localhost:8888', {clientId: 'second_subscriber'});
+var client = mqtt.connect('mqtt://localhost:1883', {clientId: 'second_subscriber'});
 var option = {
     qos: 2
 }
@@ -18,21 +25,64 @@ client.on('connect', ()=>{
     client.subscribe('service2', option);
 })
 
-function respond(data){
-  let originalData = dbService2.getCount(1);
-  dbService2.updateCount(1)
+const confirmMessageListener = (transactionId) => {
+  return new Promise((resolve, reject) => {
+    // This assumes that the events are mutually exclusive
+    confirmMessageEmitter.on(transactionId, (data)=>{
+      resolve(data);
+    })
+   
+  })
+};
+
+const confirm = async  (confirmData) => {
+  if(confirmData.abort && confirmData.reject === false){
+    const {serviceId, count} = confirmData.compensate[0].originalData
+    await dbService2.recover(serviceId, count)
+  }
+
+  return new Promise((resolve, reject) => {
+    resolve()
+  })
+}
+
+const requestHandler =  async (data) => {
+  
+  let release = await mutex.acquire()
+  
+  let originalData = await dbService2.getCount(1);
+  let reject = false // service reject
   let response = {
+    transactionId: data.transactionId,
     service: 2,
-    compensate:[
+    reject: reject,
+    compensate:[],
+  }
+  if(!reject){
+    await dbService2.updateCount(1)
+    response.compensate = [
       {
         operation: 'Update',
         originalData: originalData
       }
-    ],
-    transactionId: data.transactionId,
+    ]
   }
+  
   console.log(response);
   client.publish(data.transientId, JSON.stringify(response))
+
+  let confirmData = await confirmMessageListener(data.transactionId)
+  await confirm(confirmData)
+
+
+  release()
+
+  client.publish(confirmData.transientId, JSON.stringify({
+    transactionId: confirmData.transactionId,
+    ack: true,
+    serviceId: 'service2',
+  }))
+
 }
 
 
@@ -42,15 +92,12 @@ client.on('message', (topic, message, packet)=>{
   let data = JSON.parse(message)
   console.log(JSON.parse(message))
 
-  if(data.response == false){
-    respond(data)
+  if(data.response === false){
+    requestHandler(data)
   }
   // get final response and check response_block
-  else if(data.abort == true){
-    
-    const {serviceId, count} = data.compensate[0].originalData
-    dbService2.recover(serviceId, count)
-   
+  else{
+    confirmMessageEmitter.emit(data.transactionId, data)
   }
 
   console.log('\n\n')
