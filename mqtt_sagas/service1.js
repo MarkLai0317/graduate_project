@@ -75,7 +75,7 @@ const confirm = async (confirmData) => {
 
 const requestHandler =  async (data) => {
   
-  let release = await mutex.acquire()
+ // let release = await mutex.acquire()
 
   let reject = false //  service reject
 
@@ -111,7 +111,7 @@ const requestHandler =  async (data) => {
   console.log(confirmData)
   await confirm(confirmData)
  
-  release()
+//  release()
 
   client.publish(confirmData.transientId, JSON.stringify({
     transactionId: confirmData.transactionId,

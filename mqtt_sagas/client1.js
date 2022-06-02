@@ -1,5 +1,10 @@
+
+
+
 const { v4: uuidv4 } = require('uuid');
 
+//const { PerformanceObserver, performance } = require('perf_hooks');
+const process = require('process');
 //event emitter
 var EventEmitter = require('events');
 class MyEmitter extends EventEmitter {}
@@ -73,14 +78,67 @@ class ServiceState {
       this.services[i].transientId = transientIdList[i]
     }
   }
+
+  findService(serviceId) {
+    return this.services.find(x => x.serviceId === serviceId)
+  }
+
+  respondServices(success){
+  
+    this.services.forEach((service) => {
+      let response = {
+  
+        response: true,
+        transactionId: this.transactionId,
+        transientId: service.transientId,
+        reject: service.reject,
+        compensate: service.compensate,
+        abort: !success
+      }
+      client1.publish(service.serviceId, JSON.stringify(response))
+    })
+  }
+
+  allAcked(){
+    return this.services.every(service => service.ack === true)
+  }
+
+  unsubscribeAllTransient(){
+    this.services.forEach((service) => {
+      client1.unsubscribe(service.transientId);
+    })
+  }
+
+  servicesStateCheck(state){
+    return this.services.every(service => service.state === state);
+  }
+
+  allReturn(){
+    return this.services.every(service => service.state != 0)
+  }
+
+
+
+
 }
 
-var confirmList = []
+// client status
+const service1fail = true
+const service2fail = false
+// reject is service status
 
-client1.on('connect', ()=>{
+
+var confirmList = []
+var totalRequestNum = 25
+var RequestNum = 0
+
+client1.on('connect', async()=>{
     console.log("client1 connect!!");
     
-    for(var i=0; i<5; i++){
+    // 先發1000個
+
+    startClientTime = process.hrtime()
+    for(var i=0; i<totalRequestNum; i++){
       let transactionId = uuidv4()
       let transientId1 = uuidv4()
       let transientId2 = uuidv4()
@@ -89,6 +147,7 @@ client1.on('connect', ()=>{
       callService2(transactionId, transientId2,)
       counter += 1;
     }
+    
     
 })
 
@@ -102,7 +161,7 @@ client1.on('connect', ()=>{
 function confirmService(transientTopic, serviceId, data, checkfunction){
 //  client1.unsubscribe(transientTopic)
   let serviceState = confirmList.find(x => x.transactionId === data.transactionId)
-  let service = serviceState.services.find(x => x.serviceId === serviceId)
+  let service = serviceState.findService(serviceId)
   service.compensate = data.compensate
   service.reject = data.reject
   service.state = 1
@@ -143,11 +202,13 @@ function unsubscribeAllTransient(services){
 async function ack(data){
   
   let transactionContext = confirmList.find(x => x.transactionId === data.transactionId)
-  transactionContext.services.find(x => x.serviceId === data.serviceId).ack = true
+  // let ackrelease = transactionContext.Ackmutex.acquire()
+  transactionContext.findService(data.serviceId).ack = true
 
-  if(allAcked(transactionContext.services)){
+
+  if(transactionContext.allAcked()){
     console.log(data.transactionId+' acked')
-    unsubscribeAllTransient(transactionContext.services)
+    transactionContext.unsubscribeAllTransient()
 
     let release = await contextListMutex.acquire()
 
@@ -155,18 +216,20 @@ async function ack(data){
     confirmList.splice(index, 1);
 
     release()
-  }
+    RequestNum += 1
+    if( totalRequestNum === RequestNum){
+      let endClientTime = process.hrtime(startClientTime)
+      console.log('took ' + ((endClientTime[0]*1000) + endClientTime[1]/1000000))
 
-  //Ackmutex.release()
+    }
+      
+  }
+  // ackrelease()
 
 
 
 }
 
-// client status
-const service1fail = false
-const service2fail = false
-// reject is service status
 
 client1.on('message', (topic, message, packet)=>{
   let data = JSON.parse(message)
@@ -212,10 +275,11 @@ myEmitter.on('service_response', (stateObj) => {
   console.log('response');
 
   
-  if(allReturn(stateObj.services)){
+  if(stateObj.allReturn()){
     console.log('responding')
-    let success = servicesStateCheck(stateObj.services, 1);
-    respondServices(success, stateObj)
+    let success = stateObj.servicesStateCheck(1);
+    //respondServices(success, stateObj)
+    stateObj.respondServices(success)
     // remove transaction from confirmList
     // let index = confirmList.findIndex(x => x.transactionId === stateObj.transactionId);
     // confirmList.splice(index, 1);

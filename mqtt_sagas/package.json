@@ -12,6 +12,7 @@
     "aedes": "^0.46.3",
     "async-mutex": "^0.3.2",
     "better-sqlite3": "^7.5.0",
+    "fastseries": "^2.0.0",
     "mqtt": "^4.3.6",
     "path": "^0.12.7",
     "uuid": "^8.3.2"
