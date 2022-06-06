@@ -123,13 +123,13 @@ class ServiceState {
 }
 
 // client status
-const service1fail = true
+const service1fail = false
 const service2fail = false
 // reject is service status
 
 
 var confirmList = []
-var totalRequestNum = 25
+var totalRequestNum = 175
 var RequestNum = 0
 
 client1.on('connect', async()=>{

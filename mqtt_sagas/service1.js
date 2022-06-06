@@ -1,7 +1,7 @@
 const dbService1 = require('./requires/dbservice1.js')
 
-var Mutex = require('async-mutex').Mutex;
-const mutex = new Mutex();
+// var Mutex = require('async-mutex').Mutex;
+// const mutex = new Mutex();
 var EventEmitter = require('events');
 class ConfirmMessageEmitter extends EventEmitter {}
 const confirmMessageEmitter = new ConfirmMessageEmitter();
