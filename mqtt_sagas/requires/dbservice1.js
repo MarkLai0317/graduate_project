@@ -1,4 +1,4 @@
-const db = require('./db.js')
+const db = require('./db1.js')
 
 function addData(data){
 

@@ -50,7 +50,7 @@ const requestHandler =  async (data) => {
   
  
   
-  let reject = false // service reject
+  let reject = true // service reject
   let response = {
     transactionId: data.transactionId,
     service: 2,

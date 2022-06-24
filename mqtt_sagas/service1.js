@@ -77,7 +77,7 @@ const requestHandler =  async (data) => {
   
  // let release = await mutex.acquire()
 
-  let reject = false //  service reject
+  let reject = true //  service reject
 
 
   if(!reject){

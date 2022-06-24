@@ -1,4 +1,4 @@
-const db = require('./db.js')
+const db = require('./db2.js')
 
 
 function updateCount(id){
