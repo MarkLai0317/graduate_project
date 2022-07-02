@@ -129,7 +129,7 @@ const service2fail = false
 
 
 var confirmList = []
-var totalRequestNum = 175
+var totalRequestNum = 500
 var RequestNum = 0
 
 client1.on('connect', async()=>{
@@ -173,31 +173,9 @@ function confirmService(transientTopic, serviceId, data, checkfunction){
 }
 
 
-function respondServices(success, transactionContext){
-  
-  transactionContext.services.forEach((service) => {
-    let response = {
 
-      response: true,
-      transactionId: transactionContext.transactionId,
-      transientId: service.transientId,
-      reject: service.reject,
-      compensate: service.compensate,
-      abort: !success
-    }
-    client1.publish(service.serviceId, JSON.stringify(response))
-  })
-}
 
-function allAcked(services){
-  return services.every(service => service.ack === true)
-}
 
-function unsubscribeAllTransient(services){
-  services.forEach((service) => {
-    client1.unsubscribe(service.transientId);
-  })
-}
 
 async function ack(data){
   
@@ -263,13 +241,7 @@ client1.on('message', (topic, message, packet)=>{
 })
 
  // check service.state all == state
-function servicesStateCheck(services, state){
-  return services.every(service => service.state === state);
-}
 
-function allReturn(services){
-  return services.every(service => service.state != 0)
-}
 
 myEmitter.on('service_response', (stateObj) => {
   console.log('response');
