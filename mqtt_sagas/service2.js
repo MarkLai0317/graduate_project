@@ -1,7 +1,7 @@
 const dbService2 = require('./requires/dbservice2.js')
 
-// var Mutex = require('async-mutex').Mutex;
-// const mutex = new Mutex();
+var Mutex = require('async-mutex').Mutex;
+const mutex = new Mutex();
 
 var EventEmitter = require('events');
 class ConfirmMessageEmitter extends EventEmitter {}
@@ -48,13 +48,26 @@ const confirm = async  (confirmData) => {
 }
 
 const requestHandler =  async (data) => {
+  let reject = false // service reject
+  if(mutex.isLocked()){
+    let response = {
+      transactionId:data.transactionId,
+      ack: false,
+      fail: true,
+      serviceId:'service2',
+      reject: reject,
+      compensate:[] ,
+    }
+    client.publish(data.transientId, JSON.stringify(response))
+
+    return
+  }
+  let release = await mutex.acquire()
   
-  // let release = await mutex.acquire()
-  
-  let reject = true // service reject
+   
   let response = {
     transactionId: data.transactionId,
-    service: 2,
+    serviceId: 'service2',
     reject: reject,
     compensate:[],
   }
@@ -70,11 +83,11 @@ const requestHandler =  async (data) => {
   
   console.log(response);
   client.publish(data.transientId, JSON.stringify(response))
-
+  console.log(data.transientId)
   let confirmData = await confirmMessageListener(data.transactionId)
   await confirm(confirmData)
 
-  // release()
+  release()
 
 
   client.publish(confirmData.transientId, JSON.stringify({

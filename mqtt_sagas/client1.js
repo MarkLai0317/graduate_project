@@ -61,6 +61,7 @@ class ServiceState {
         serviceId: 'service1',
         state: 0,  // -1 = fail,  1 = success
         ack: false,
+        fail: false,
         reject: false,
         transientId: '',
         compensate:[] // 補償操作
@@ -69,6 +70,7 @@ class ServiceState {
         serviceId: 'service2',
         state: 0, 
         ack: false, // -1 = fail,  1 = success
+        fail: false,
         reject: false,
         transientId: '',
         compensate:[] // 補償操作
@@ -84,18 +86,19 @@ class ServiceState {
   }
 
   respondServices(success){
-  
     this.services.forEach((service) => {
-      let response = {
-  
-        response: true,
-        transactionId: this.transactionId,
-        transientId: service.transientId,
-        reject: service.reject,
-        compensate: service.compensate,
-        abort: !success
+      if(!service.fail){
+        let response = {
+    
+          response: true,
+          transactionId: this.transactionId,
+          transientId: service.transientId,
+          reject: service.reject,
+          compensate: service.compensate,
+          abort: !success
+        }
+        client1.publish(service.serviceId, JSON.stringify(response))
       }
-      client1.publish(service.serviceId, JSON.stringify(response))
     })
   }
 
@@ -158,19 +161,7 @@ client1.on('connect', async()=>{
 
 
 
-function confirmService(transientTopic, serviceId, data, checkfunction){
-//  client1.unsubscribe(transientTopic)
-  let serviceState = confirmList.find(x => x.transactionId === data.transactionId)
-  let service = serviceState.findService(serviceId)
-  service.compensate = data.compensate
-  service.reject = data.reject
-  service.state = 1
-  // self define check if stat is 1 or -1
-  checkfunction(service, data)
 
-  myEmitter.emit('service_response', serviceState)
-  
-}
 
 
 
@@ -181,6 +172,7 @@ async function ack(data){
   
   let transactionContext = confirmList.find(x => x.transactionId === data.transactionId)
   // let ackrelease = transactionContext.Ackmutex.acquire()
+  //console.log(transactionContext)
   transactionContext.findService(data.serviceId).ack = true
 
 
@@ -203,19 +195,37 @@ async function ack(data){
       
   }
   // ackrelease()
-
-
-
 }
+
+function confirmService(transientTopic, serviceId, data, checkfunction){
+  //  client1.unsubscribe(transientTopic)
+    let serviceState = confirmList.find(x => x.transactionId === data.transactionId)
+    let service = serviceState.findService(serviceId)
+    service.compensate = data.compensate
+    service.reject = data.reject
+    service.state = 1
+    
+    // self define check if stat is 1 or -1
+    checkfunction(service, data)
+
+    if(data.fail){
+      service.fail = true
+      service.ack = true
+      ack(data)
+    }
+  
+    myEmitter.emit('service_response', serviceState)
+    
+  }
 
 
 client1.on('message', (topic, message, packet)=>{
   let data = JSON.parse(message)
-  
+ // console.log(data)
   if(data.ack){
     ack(data)
   }
-  else if(data.service === 1){
+  else if(data.serviceId === 'service1'){
     confirmService(topic, 'service1', data, (service, data)=>{
       if(data.reject || service1fail){ //abort
         service.state = -1
@@ -225,7 +235,7 @@ client1.on('message', (topic, message, packet)=>{
       }
     })
   }
-  else if (data.service === 2){
+  else if (data.serviceId === 'service2'){
     confirmService(topic, 'service2', data, (service, data)=>{
       if(data.reject || service2fail){ //abort
         service.state = -1
