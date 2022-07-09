@@ -127,11 +127,11 @@ class ServiceState {
 
 // client status
 const service1fail = false
-const service2fail = false
+const service2fail = true
 // reject is service status
 
 
-var confirmList = []
+var confirmList = {}
 var totalRequestNum = 500
 var RequestNum = 0
 
@@ -145,7 +145,7 @@ client1.on('connect', async()=>{
       let transactionId = uuidv4()
       let transientId1 = uuidv4()
       let transientId2 = uuidv4()
-      confirmList.push(new ServiceState(transactionId, [transientId1, transientId2]))
+      confirmList[transactionId] = (new ServiceState(transactionId, [transientId1, transientId2]))
       callService1(transactionId, transientId1,counter)
       callService2(transactionId, transientId2,)
       counter += 1;
@@ -170,7 +170,7 @@ client1.on('connect', async()=>{
 
 async function ack(data){
   
-  let transactionContext = confirmList.find(x => x.transactionId === data.transactionId)
+  let transactionContext = confirmList[data.transactionId]
   // let ackrelease = transactionContext.Ackmutex.acquire()
   //console.log(transactionContext)
   transactionContext.findService(data.serviceId).ack = true
@@ -180,12 +180,9 @@ async function ack(data){
     console.log(data.transactionId+' acked')
     transactionContext.unsubscribeAllTransient()
 
-    let release = await contextListMutex.acquire()
+   
+    delete confirmList[data.transactionId]
 
-    let index = confirmList.findIndex(x => x.transactionId === data.transactionId)
-    confirmList.splice(index, 1);
-
-    release()
     RequestNum += 1
     if( totalRequestNum === RequestNum){
       let endClientTime = process.hrtime(startClientTime)
@@ -199,7 +196,7 @@ async function ack(data){
 
 function confirmService(transientTopic, serviceId, data, checkfunction){
   //  client1.unsubscribe(transientTopic)
-    let serviceState = confirmList.find(x => x.transactionId === data.transactionId)
+    let serviceState = confirmList[data.transactionId]
     let service = serviceState.findService(serviceId)
     service.compensate = data.compensate
     service.reject = data.reject

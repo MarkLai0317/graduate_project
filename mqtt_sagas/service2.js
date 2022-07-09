@@ -48,7 +48,7 @@ const confirm = async  (confirmData) => {
 }
 
 const requestHandler =  async (data) => {
-  let reject = false // service reject
+  let reject = true // service reject
   if(mutex.isLocked()){
     let response = {
       transactionId:data.transactionId,

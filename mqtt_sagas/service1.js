@@ -77,7 +77,7 @@ const confirm = async (confirmData) => {
 
 
 const requestHandler =  async (data) => {
-  let reject = false //  service reject
+  let reject = true //  service reject
 
   if(mutex.isLocked()){
     let response = {
@@ -125,7 +125,7 @@ const requestHandler =  async (data) => {
   // if(confirmData.abort && confirmData.reject == false){
   //   await abort()
   // }
-  console.log(confirmData)
+  //console.log(confirmData)
   await confirm(confirmData)
  
   release()
