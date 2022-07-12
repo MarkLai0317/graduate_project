@@ -1,0 +1,15 @@
+{
+  "apps" : [{
+      "name"        : "service1",
+      "script"      : "./service1.js",
+      "watch"       : false,
+      "exec_mode": "cluster_mode",
+      "instances": 1
+  },{
+      "name"        : "service2",
+      "script"      : "./service2.js",
+      "watch"       : false,
+      "exec_mode": "cluster_mode",
+      "instances": 1
+  }]
+}
